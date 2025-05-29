@@ -289,7 +289,7 @@ if __name__ == "__main__":
 
 
     # Display messages in prompt when starting the app
-    welcome_message = ("------------> Welcome to the FF Machine, Version B • 0.86 <------------\n\n")
+    welcome_message = ("------------> Welcome to the FF Machine, Version B • 0.92 <------------\n\n")
 
     start_up_message = (
         "How it works:\n"
