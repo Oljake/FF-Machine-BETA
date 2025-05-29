@@ -14,6 +14,9 @@ if __name__ == "__main__":
     from tkinter import messagebox
     import sys
     import os
+    import atexit
+
+    import overlay
 
     ctk.set_appearance_mode("dark")
     ctk.set_default_color_theme("blue")
@@ -25,9 +28,7 @@ if __name__ == "__main__":
 
     class_names = ['0', '1', '10', '11', '12', '13', '2', '3', '4', '5', '6', '7', '8', '9', '-']
 
-
     def worker():
-
 
         global running
         while not stop_event.is_set():
@@ -61,8 +62,19 @@ if __name__ == "__main__":
             if total in [4, 12]:
                 for i in range(sleep_after_combo_int, 0, -1):
                     insert_to_console(f"------------> Surrendering in {i}... <------------\n", "ligh_cyan")
-                    time.sleep(1)
+                    msg = f"Surrendering in {i}"
+                    overlay.overlay_q.put(msg)
+                    for _ in range(10):
+                        if stop_event.is_set():
+                            break
+                        time.sleep(0.1)
+                    if stop_event.is_set():
+                        break
 
+                if stop_event.is_set():
+                    break
+
+                overlay.overlay_q.put("Surrendering")
                 call_vote.force_focus_and_send_commands("VALORANT  ", ff_amount_int)
 
                 insert_to_console(f"\n------------> Finished voting <------------\n", "process_color")
@@ -78,17 +90,25 @@ if __name__ == "__main__":
                 average = ' : '.join(class_names[i] for i in avg_detected)
                 fps = f"{1 / (time.perf_counter() - start):.2f}"
 
+
                 if n_avg_checkbox_var.get() and fps_checkbox_var.get():
                     q.put((f"▶ Detected: [{detected}]    ⟶ Average: [{average}]    ⏱ FPS: {fps}", "white"))
+                    overlay.overlay_data = f"Det: {detected} Avg: {average} FPS: {fps}"
+
 
                 elif n_avg_checkbox_var.get():
                     q.put((f"▶ Detected: [{detected}]    ⟶ Average: [{average}]", "white"))
+                    overlay.overlay_data = f"Det: {detected} Avg: {average}"
 
                 elif fps_checkbox_var.get():
                     q.put((f"▶ Detected: [{detected}]    ⏱ FPS: {fps}", "white"))
+                    overlay.overlay_data = f"Det: {detected} FPS: {fps}"
 
                 else:
                     q.put((f"▶ Detected: [{detected}]", "white"))
+                    overlay.overlay_data = f"Det: {detected}"
+
+                overlay.overlay_q.put(overlay.overlay_data)
 
 
     def start():
@@ -99,6 +119,8 @@ if __name__ == "__main__":
         stop_event.clear()
         thread = threading.Thread(target=worker, daemon=True)
         thread.start()
+
+        overlay.start_overlay()
 
         insert_to_console(f"------------> Detection started <------------\n\n\n", "process_color")
 
@@ -115,6 +137,7 @@ if __name__ == "__main__":
 
         running = False
         stop_event.set()
+        overlay.stop_overlay()
 
         def wait_thread():
             if thread:
@@ -338,6 +361,8 @@ if __name__ == "__main__":
 
 
     # - # - # - # - # - # - # - # - # - # - # - # - # - # - # - # - # - # - # - # - # - # - # - # - # - # - # - # - # - # -
+
+    atexit.register(overlay.stop_overlay)
 
     n_avg_checkbox_var = ctk.BooleanVar()
     fps_checkbox_var = ctk.BooleanVar()
