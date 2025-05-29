@@ -303,7 +303,7 @@ if __name__ == "__main__":
     console.tag_config("warning", foreground="#e65353")
 
     # Display messages in prompt when starting the app
-    welcome_message = ("------------> Welcome to the FF Machine, Version B • 0.93 <------------\n\n")
+    welcome_message = ("------------> Welcome to the FF Machine, Version v0.93-beta <------------\n\n")
 
     start_up_message = (
         "How it works:\n"
