@@ -28,6 +28,7 @@ if __name__ == "__main__":
 
     class_names = ['0', '1', '10', '11', '12', '13', '2', '3', '4', '5', '6', '7', '8', '9', '-']
 
+
     def worker():
 
         global running
@@ -80,8 +81,9 @@ if __name__ == "__main__":
                 insert_to_console(f"\n------------> Finished voting <------------\n", "process_color")
 
                 use_model.detected_history.clear()
-                stop()
-                break
+                if not auto_restart_checkbox_var.get():
+                    stop()
+                    break
 
             time.sleep(max(0, use_model.target_dt - (time.perf_counter() - start)))
 
@@ -89,7 +91,6 @@ if __name__ == "__main__":
                 detected = ' : '.join(class_names[i] for i in preds)
                 average = ' : '.join(class_names[i] for i in avg_detected)
                 fps = f"{1 / (time.perf_counter() - start):.2f}"
-
 
                 if n_avg_checkbox_var.get() and fps_checkbox_var.get():
                     q.put((f"▶ Detected: [{detected}]    ⟶ Average: [{average}]    ⏱ FPS: {fps}", "white"))
@@ -124,7 +125,11 @@ if __name__ == "__main__":
 
         insert_to_console(f"------------> Detection started <------------\n\n\n", "process_color")
 
-        start_btn.configure(state=ctk.DISABLED)
+        start_btn.configure(state=ctk.DISABLED, fg_color=disabled_fg, text_color="white")
+
+        auto_restart_checkbox.configure(state=ctk.DISABLED, text_color="white", fg_color=disabled_fg, border_color=disabled_fg)
+        apply_button.configure(state=ctk.DISABLED, text_color="white", fg_color=disabled_fg)
+
 
 
     def stop():
@@ -146,17 +151,23 @@ if __name__ == "__main__":
             with q.mutex:
                 q.queue.clear()
 
-            start_btn.configure(state=ctk.NORMAL)
+
+            start_btn.configure(state=ctk.NORMAL, fg_color=enabled_fg, text_color="white")
+
+            auto_restart_checkbox.configure(state=ctk.NORMAL, text_color="white", fg_color=enabled_fg, hover_color=enabled_hover_color, border_color=enabled_boreder_color)
+            apply_button.configure(state=ctk.NORMAL, text_color="white", fg_color=enabled_fg, hover_color=enabled_hover_color)
 
             insert_to_console(f"\n------------> Process stopped <------------\n\n\n", "process_color")
 
         threading.Thread(target=wait_thread, daemon=True).start()
+
 
     def insert_to_console(text, color="white"):
         console.configure(state="normal")
         console.insert(ctk.END, text, color)
         console.yview_moveto(1)
         console.configure(state="disabled")
+
 
     def update_console():
         last_visible = console.yview()
@@ -211,6 +222,7 @@ if __name__ == "__main__":
         max_detected_history = clean_and_clamp(max_detected_history_var, 1, 999, 20)
         target_FPS = clean_and_clamp(target_fps_var, 10, 240, 30)
 
+        auto_restart_enabled = auto_restart_checkbox_var.get()
         n_avg_enabled = n_avg_checkbox_var.get()
         fps_enabled = fps_checkbox_var.get()
 
@@ -227,6 +239,7 @@ if __name__ == "__main__":
             "target_FPS": target_FPS,
             "n_avg_checkbox_var": n_avg_enabled,
             "fps_checkbox_var": fps_enabled,
+            "auto_restart_checkbox_var": auto_restart_enabled,
         }
 
         full_config.update(partial_config)
@@ -249,7 +262,9 @@ if __name__ == "__main__":
         insert_to_console(f"----> Vote Attempts: {ff_amount}\n", "green")
         insert_to_console(f"----> Pre-vote Sleep: {sleep_after_combo}\n", "green")
         insert_to_console(f"----> N average: {max_detected_history} (Show: {n_avg_enabled})\n", "green")
-        insert_to_console(f"----> Target FPS: {target_FPS} (Show: {fps_enabled})\n\n\n", "green")
+        insert_to_console(f"----> Target FPS: {target_FPS} (Show: {fps_enabled})\n\n", "green")
+        insert_to_console(f"----> Auto-Restart: {auto_restart_enabled}\n\n\n", "green")
+
 
     def validate_numeric(P):
         return P.isdigit() or P == ""
@@ -259,6 +274,7 @@ if __name__ == "__main__":
     root.geometry("911x424")
     root.title("FF Machine")
     root.resizable(False, False)
+
 
     def resource_path(relative_path):
         base_path = getattr(sys, '_MEIPASS', os.path.abspath("."))
@@ -286,29 +302,26 @@ if __name__ == "__main__":
     console.tag_config("process_color", foreground="#a3279d")
     console.tag_config("warning", foreground="#e65353")
 
-
-
     # Display messages in prompt when starting the app
-    welcome_message = ("------------> Welcome to the FF Machine, Version B • 0.92 <------------\n\n")
+    welcome_message = ("------------> Welcome to the FF Machine, Version B • 0.93 <------------\n\n")
 
     start_up_message = (
         "How it works:\n"
         "• Click   **Start**   to begin monitoring the game score from your screen.\n\n"
-        
+
         "• When a combined score of   **4**   or   **12**   is detected (based on average detection):\n"
         "    → FF Machine forces focus to the VALORANT window\n"
         "    → Sends   **/t /ff**   to initiate a team surrender (avoids party/private chat)\n"
         "    → Detection automatically stops after voting is triggered\n\n"
-        
+
         "• Click   **Stop**   to halt score monitoring — but note:\n"
         "    → 'Stop' only ends detection, not the surrender process\n"
         "    → If voting has already started, it will continue to send the pre-set number of vote attempts\n\n"
-        
+
         "Notes:\n"
         "• FF Machine does   **not**   return focus to your previous window after triggering the vote.\n"
         "• Please ensure Valorant is actively running and prominently displayed on your screen to ensure flawless operation.\n\n"
     )
-
 
     warning_message = (
         "⚠️ Use at   **your own risk**   — this may violate VALORANT’s terms of service. I am   **not responsible**   \n"
@@ -317,14 +330,34 @@ if __name__ == "__main__":
 
     warning_message_cuda = ("⚠️  **CUDA**   is not available. Running on   **CPU**  , which may be slower.\n\n")
 
-
     insert_to_console(welcome_message, "green")
     insert_to_console(start_up_message, "green")
     insert_to_console(warning_message, "warning")
 
-    start_btn = ctk.CTkButton(controls_frame, text="Start", command=start)
-    start_btn.pack(padx=10, pady=10)
-    stop_btn = ctk.CTkButton(controls_frame, text="Stop", command=stop)
+    enabled_fg = "#1F6AA5"
+    enabled_hover_color = "#144870"
+    enabled_boreder_color = "#949A9F"
+
+    disabled_fg = "#063356"
+    disabled_hover_color = "#3d1f1f"
+    disabled_boreder_color = "#282829"
+
+    frame_color = controls_frame.cget("fg_color")  # Get parent bg color
+
+    auto_restart_checkbox_var = ctk.BooleanVar()
+    n_avg_checkbox_var = ctk.BooleanVar()
+    fps_checkbox_var = ctk.BooleanVar()
+
+    # Start row
+    start_row = ctk.CTkFrame(controls_frame, fg_color=frame_color)
+    start_row.pack(padx=10, pady=10)
+    start_btn = ctk.CTkButton(start_row, width=110, text="Start", command=start, fg_color=enabled_fg, hover_color=enabled_hover_color)
+    start_btn.pack(side="left", padx=(10, 0))
+    auto_restart_checkbox = ctk.CTkCheckBox(start_row, text="", width=20, variable=auto_restart_checkbox_var)
+    auto_restart_checkbox.pack(side="left", padx=(5, 0))
+
+
+    stop_btn = ctk.CTkButton(controls_frame, text="Stop", command=stop, fg_color=enabled_fg, hover_color=enabled_hover_color)
     stop_btn.pack(padx=10, pady=10)
 
     with open("config.pkl", "rb") as f:
@@ -359,13 +392,9 @@ if __name__ == "__main__":
     use_model.target_dt = 1 / loaded_config.get("target_FPS", 30)
     use_model.regions = use_model.init()
 
-
     # - # - # - # - # - # - # - # - # - # - # - # - # - # - # - # - # - # - # - # - # - # - # - # - # - # - # - # - # - # -
 
     atexit.register(overlay.stop_overlay)
-
-    n_avg_checkbox_var = ctk.BooleanVar()
-    fps_checkbox_var = ctk.BooleanVar()
 
     def load_config():
         try:
@@ -381,7 +410,8 @@ if __name__ == "__main__":
             target_fps_int = int(loaded.get("target_FPS", 30))
 
             n_avg_checkbox_var.set(bool(loaded.get("n_avg_checkbox_var", True)))
-            fps_checkbox_var.set(bool(loaded.get("fps_checkbox_var", True)))
+            fps_checkbox_var.set(bool(loaded.get("fps_checkbox_var", False)))
+            auto_restart_checkbox_var.set(bool(loaded.get("auto_restart_checkbox_var", False)))
 
 
         except Exception:
@@ -408,37 +438,39 @@ if __name__ == "__main__":
             fps_checkbox_var
         )
 
+
     ff_amount_var, sleep_after_combo_var, max_detected_history_var, target_fps_var, ff_amount_int, \
         sleep_after_combo_int, max_detected_history_int, target_fps_int, n_avg_checkbox_var, fps_checkbox_var = load_config()
 
-
-
     validate_int = (root.register(validate_numeric), '%P')
-    frame_color = controls_frame.cget("fg_color")  # Get parent bg color
-
 
     ctk.CTkLabel(controls_frame, text="Vote Attempts").pack()
-    ctk.CTkEntry(controls_frame, textvariable=ff_amount_var, validate="key", validatecommand=validate_int).pack(padx=(10, 10), pady=2)
+    ctk.CTkEntry(controls_frame, textvariable=ff_amount_var, validate="key", validatecommand=validate_int).pack(
+        padx=(10, 10), pady=2)
 
     ctk.CTkLabel(controls_frame, text="Pre-vote Sleep").pack()
-    ctk.CTkEntry(controls_frame, textvariable=sleep_after_combo_var, validate="key", validatecommand=validate_int).pack(padx=(10, 10), pady=2)
+    ctk.CTkEntry(controls_frame, textvariable=sleep_after_combo_var, validate="key", validatecommand=validate_int).pack(
+        padx=(10, 10), pady=2)
 
     # N average row
     ctk.CTkLabel(controls_frame, text="N average").pack()
     n_avg_row = ctk.CTkFrame(controls_frame, fg_color=frame_color)
     n_avg_row.pack(padx=10, pady=2)
-    ctk.CTkEntry(n_avg_row, width=110, textvariable=max_detected_history_var, validate="key", validatecommand=validate_int).pack(side="left", padx=(10, 0))
-    ctk.CTkCheckBox(n_avg_row, text="", width=20, variable=n_avg_checkbox_var).pack(side="left", padx=(5, 0))
+    ctk.CTkEntry(n_avg_row, width=110, textvariable=max_detected_history_var, validate="key",
+                 validatecommand=validate_int).pack(side="left", padx=(10, 0))
+    n_avarage_checkbox = ctk.CTkCheckBox(n_avg_row, text="", width=20, variable=n_avg_checkbox_var)
+    n_avarage_checkbox.pack(side="left", padx=(5, 0))
 
     # Target FPS row
     ctk.CTkLabel(controls_frame, text="Target FPS").pack()
     fps_row = ctk.CTkFrame(controls_frame, fg_color=frame_color)
     fps_row.pack(padx=10, pady=2)
     ctk.CTkEntry(fps_row, width=110, textvariable=target_fps_var, validate="key", validatecommand=validate_int).pack(side="left", padx=(10, 0))
-    ctk.CTkCheckBox(fps_row, text="", width=20, variable=fps_checkbox_var).pack(side="left", padx=(5, 0))
+    target_fpx_checkbox = ctk.CTkCheckBox(fps_row, text="", width=20, variable=fps_checkbox_var)
+    target_fpx_checkbox.pack(side="left", padx=(5, 0))
 
-
-    ctk.CTkButton(controls_frame, text="Apply Settings", command=apply_settings).pack(padx=(10, 10), pady=10)
+    apply_button = ctk.CTkButton(controls_frame, text="Apply Settings", command=apply_settings)
+    apply_button.pack(padx=(10, 10), pady=10)
 
     start_btn.configure(state=ctk.NORMAL)
     root.after(100, update_console)
