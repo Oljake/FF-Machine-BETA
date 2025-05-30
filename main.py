@@ -49,7 +49,7 @@ def worker():
 
         total = sum(class_value(i) for i in avg_detected)
 
-        if total in [4, 12]:
+        if total in [0, 12]:
             for i in range(sleep_after_combo_int, 0, -1):
                 insert_to_console(f"------------> Surrendering in {i}... <------------\n", "ligh_cyan")
                 msg = f"Surrendering in {i}"
@@ -70,9 +70,21 @@ def worker():
             insert_to_console(f"\n------------> Finished voting <------------\n", "process_color")
 
             use_model.detected_history.clear()
-            if not auto_restart_checkbox_var.get():
-                stop()
-                break
+
+            if auto_restart_checkbox_var.get():
+                insert_to_console(f"\n------------> Auto-Restarting...  <------------\n", "process_color")
+                msg = f"Auto-Restarting..."
+                overlay.overlay_q.put(msg)
+                for _ in range(50):
+                    if stop_event.is_set():
+                        break
+                    time.sleep(0.1)
+                if stop_event.is_set():
+                    break
+
+                if not auto_restart_checkbox_var.get():
+                    stop()
+                    break
 
         time.sleep(max(0, use_model.target_dt - (time.perf_counter() - start)))
 
@@ -358,12 +370,26 @@ if __name__ == "__main__":
         "⚠️ Use at   **your own risk**   — this may violate VALORANT’s terms of service. I am   **not responsible**   \n"
         "⚠️ for any issues or consequences resulting from its use.\n\n"
     )
-
+    warning_message_FF = ("⚠️ Script not running as administrator. Focus may fail. Run as admin for best results.\n\n")
     warning_message_cuda = ("⚠️  **CUDA**   is not available. Running on   **CPU**  , which may be slower.\n\n")
+
+
+    # Check if script is running with admin privileges
+    def is_admin():
+        try:
+            return ctypes.windll.shell32.IsUserAnAdmin()
+        except:
+            return False
+
+
 
     insert_to_console(welcome_message, "green")
     insert_to_console(start_up_message, "green")
+
     insert_to_console(warning_message, "warning")
+
+    if not is_admin():
+        insert_to_console(warning_message_FF, "warning")
 
     enabled_fg = "#1F6AA5"
     enabled_hover_color = "#144870"
