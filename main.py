@@ -49,7 +49,7 @@ def worker():
 
         total = sum(class_value(i) for i in avg_detected)
 
-        if total in [0, 12]:
+        if total in [4, 12]:
             for i in range(sleep_after_combo_int, 0, -1):
                 insert_to_console(f"------------> Surrendering in {i}... <------------\n", "ligh_cyan")
                 msg = f"Surrendering in {i}"
